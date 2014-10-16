@@ -222,8 +222,7 @@ class VPN(MyFrame1):
     challenge = ''
 
     BS = 16
-    pad = lambda s: s + (BS - len(s) % BS) * chr(BS - len(s) % BS) 
-    unpad = lambda s : s[0:-ord(s[-1])]
+
 
 
 
@@ -242,43 +241,54 @@ class VPN(MyFrame1):
             self.data1 = self.conn.recv(1024)
 
             if self.data1:
+
                 if self.state == 0:
                     self.clientID = self.data1[:5]
                     self.challenge = self.data1[5:]
-                    self.conn.send("challenge_"+str(self.m_port.Value+1)+encrypt(serverID+str(self.m_port.Value)+self.clientID+str(19), self.sharedKey))
-                    state = 1
+                    self.conn.send("challenge_"+str(int(self.m_port.Value)+1)+self.encrypt(self.serverID+self.m_port.Value+"challenge_"+self.m_port.Value+str(19), self.sharedKey))
+                    self.state = 1
                 elif self.state == 1:
-                    self.data1 = decrypt(self.data1,self.sharedKey)
-                    if str(self.clientID)+"challenge_"+str(self.m_port.Value+1)+str(8) != self.data1:
+                    self.data1, flag = self.decrypt(self.data1,self.sharedKey)
+                    if flag:self.m_status.Label = "Channel Compromised!!!!!!!!! ABORT ABORT!!!"
+                    if str(self.clientID)+"challenge_"+str(int(self.m_port.Value)+1)+str(8) != self.data1:
                         self.m_status.Label = "Channel Compromised!!!!!!!!! ABORT ABORT!!!"
                     else:
                         self.m_status.Label = "Server-mode: Authenticated"
                         self.sharedKey = hashlib.sha256('2').digest()
-                        state = 2
-                elif state == 2:
-                    self.data1 = decrypt(self.data1,
+                        self.state = 2
+                elif self.state == 2:
+                    self.data1, flag = self.decrypt(self.data1,self.sharedKey)
+                    if flag:self.m_status.Label = "Channel Compromised!!!!!!!!! ABORT ABORT!!!"
+                    self.m_received.Value += self.data1+"\n"
         
             # conn.close()
     def client(self):
-        self.s.send(str(self.clientID)+"challenge_"+str(self.m_port.Value))
+        self.s.send(str(self.clientID)+"challenge_"+self.m_port.Value)
         while 1:
-            self.data2 = s.recv(1024)
+            self.data2 = self.s.recv(1024)
 
             if self.data2:
                 if self.state == 0:
-                    self.challenge = self.data2[:len(serverID+str(self.m_port.Value))]
-                    self.data2 = decrypt(self.data2,self.sharedKey)
-                    if serverID+str(self.m_port.Value) != self.data2[:len(serverID+str(self.m_port.Value))]:
-                        self.m_status.Label = "Channel Compromised!!!!!!!!! ABORT ABORT!!!"
+                    self.challenge = self.data2[:len('challenge_'+str(int(self.m_port.Value)+1))]
+                    self.data2, flag = self.decrypt(self.data2[len('challenge_'+str(int(self.m_port.Value)+1)):],self.sharedKey)
+                    if flag:self.m_status.Label = "1Channel Compromised!!!!!!!!! ABORT ABORT!!!"
+                    if self.serverID+self.m_port.Value != self.data2[:len(self.serverID+self.m_port.Value)]:
+                        self.m_status.Label = "2Channel Compromised!!!!!!!!! ABORT ABORT!!!"
                     else:
-                        if "challenge_"+str(self.m_port.Value) != self.data2[len(serverID+str(self.m_port.Value)):len("challenge_"+str(self.m_port.Value)+serverID+str(self.m_port.Value))]:
-                            self.m_status.Label = "Channel Compromised!!!!!!!!! ABORT ABORT!!!"
+                        print "challenge_"+str(self.m_port.Value)
+                        print self.data2 
+                        if "challenge_"+str(self.m_port.Value) != self.data2[len(self.serverID+str(self.m_port.Value)):len("challenge_"+self.m_port.Value+self.serverID+self.m_port.Value)]:
+                            self.m_status.Label = "3Channel Compromised!!!!!!!!! ABORT ABORT!!!"
                         else:
-                            self.s.send(encrypt(str(self.clientID)+self.challenge+str(8),self.sharedKey))
+                            self.s.send(self.encrypt(str(self.clientID)+self.challenge+str(8),self.sharedKey))
                             self.m_status.Label = "Client-mode: Authenticated"
-                            state = 1
+                            self.state = 1
+                            self.sharedKey = hashlib.sha256('2').digest()
                 elif self.state == 1:
-                    pass
+                    self.data2, flag = self.decrypt(self.data2,self.sharedKey)
+                    if flag:self.m_status.Label = "Channel Compromised!!!!!!!!! ABORT ABORT!!!"
+                    self.m_received.Value += self.data2+"\n"
+
 
 
 
@@ -310,7 +320,7 @@ class VPN(MyFrame1):
                 self.socket = True
                 self.m_status.Label = 'Client-mode'
                 self.status = True
-                self.sharedKey = self.m_secret.Value
+                self.sharedKey =  hashlib.sha256(self.m_secret.Value).digest()
                 thread.start_new_thread( self.client,() )
                 
             except:
@@ -330,7 +340,7 @@ class VPN(MyFrame1):
                 self.socket = True
                 self.m_status.Label = 'Server-mode'
                 self.status = True
-                self.sharedKey = self.m_secret.Value
+                self.sharedKey =  hashlib.sha256(self.m_secret.Value).digest()
                 thread.start_new_thread( self.server,() )
             except:
                 self.m_status.Label = 'Error!'
@@ -341,7 +351,11 @@ class VPN(MyFrame1):
             
     
     def send( self, event ):
-        print self.m_sendBox.Value
+        try:
+            self.s.send(self.encrypt(self.m_sendBox.Value,self.sharedKey))
+        except:
+            self.conn.send(self.encrypt(self.m_sendBox.Value,self.sharedKey))
+        self.m_sendBox = ''
     
     def step( self, event ):
         event.Skip()
@@ -352,20 +366,23 @@ class VPN(MyFrame1):
     def checkVPN( self, event ):
         event.Skip()
 
-    def encrypt(plaintext, privateKey):
-        plaintext = pad(plaintext)
+    def encrypt(self, plaintext, privateKey):
+        plaintext = self.pad(plaintext)
         iv = Random.new().read(AES.block_size)
         ciphertext = AES.new(privateKey, AES.MODE_CBC, iv)
         return hashlib.sha1(plaintext).hexdigest()+base64.b64encode(iv + ciphertext.encrypt(plaintext))
 
-    def decrypt(ciphertext, privateKey):
+    def decrypt(self, ciphertext, privateKey):
         mac = ciphertext[:40]
         ciphertext = base64.b64decode(ciphertext[40:])
         iv = ciphertext[:16]
         plaintext = AES.new(privateKey, AES.MODE_CBC, iv)
-        plaintext = unpad(plaintext.decrypt(ciphertext[16:]))
+        plaintext = self.unpad(plaintext.decrypt(ciphertext[16:]))
         flag = (mac == hashlib.sha1(plaintext).hexdigest())
         return (plaintext,flag)
+
+    pad = lambda self,s: s + (self.BS - len(s) % self.BS) * chr(self.BS - len(s) % self.BS) 
+    unpad = lambda self,s : s[0:-ord(s[-1])]
 
  
 #mandatory in wx, create an app, False stands for not deteriction stdin/stdout
