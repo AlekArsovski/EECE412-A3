@@ -18,7 +18,6 @@ import hashlib
 import thread
 from random import randrange
 
-
 ###########################################################################
 ## Class MyFrame1
 ###########################################################################
@@ -204,6 +203,8 @@ class MyFrame1 ( wx.Frame ):
     def __del__( self ):
         pass
     
+    
+
 
 class VPN(MyFrame1):
     isClient = False
@@ -219,8 +220,14 @@ class VPN(MyFrame1):
     clientID = randrange(11111,99999)
     serverID = "server"
     challenge = ''
+    isStep = False
+    log = []
 
     BS = 16
+
+
+
+
 
     #constructor
     def __init__(self,parent):
@@ -229,7 +236,6 @@ class VPN(MyFrame1):
  
     # Virtual event handlers, overide them in your derived class
 
-    
     def server(self):
         self.s.listen(1)
         self.conn, self.addr = self.s.accept()
@@ -241,50 +247,146 @@ class VPN(MyFrame1):
                 if self.state == 0:
                     self.clientID = self.data1[:5]
                     self.challenge = self.data1[5:]
+                    string = '\nReceived: '+ self.data1+'\nClientID: '+self.clientID+'\nClient challenge is: '+self.challenge+'\n'
+                    if self.isStep:
+                        self.log.append(string)
+                    else:
+                        self.m_log.Value += string
                     self.conn.send("challenge_"+str(int(self.m_port.Value)+1)+self.encrypt(self.serverID+self.m_port.Value+"challenge_"+self.m_port.Value+str(19), self.sharedKey))
+
+                    string = 'Counter challenge is: challenge_'+str(int(self.m_port.Value)+1)+'\nSent: challenge_'+ str(int(self.m_port.Value)+1)+self.encrypt(self.serverID+self.m_port.Value+"challenge_"+self.m_port.Value+str(19), self.sharedKey)+'\n'
+                    if self.isStep:
+                        self.log.append(string)
+                    else:
+                        print string
+                        self.m_log.Value += string
+
+
+
+                   
+                    string = 'Diffie-Hellman key exchange: g=5, p=23, B=19\n'
+                    if self.isStep:
+                        self.log.append(string)
+                    else:
+                        print string
+                        self.m_log.Value += string
                     self.state = 1
                 elif self.state == 1:
+                    TEMP = self.decrypt(self.data1,self.sharedKey)
+                    string = 'Received: '+self.data1+"\nDecrypted data: "+TEMP[0]+"\n"
+                    if self.isStep:
+                        self.log.append(string)
+                    else:
+                    
+                        self.m_log.Value += string
                     self.data1, flag = self.decrypt(self.data1,self.sharedKey)
+
                     if flag:self.m_status.Label = "Channel Compromised!!!!!!!!! ABORT ABORT!!!"
                     if str(self.clientID)+"challenge_"+str(int(self.m_port.Value)+1)+str(8) != self.data1:
                         self.m_status.Label = "Channel Compromised!!!!!!!!! ABORT ABORT!!!"
+                        string = 'Client ID mismatch!'
+                        if self.isStep:
+                            self.log.append(string)
+                        else:
+                            self.m_log.Value += string
                     else:
                         self.m_status.Label = "Server-mode: Authenticated"
+                        string = 'Client ID Matched!\nClient passed challenge!\nClient Verified!\n'+"\nSecret = 2\n Session Key = SHA256('2')\n Session Key = d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35\n"
+                        if self.isStep:
+                            self.log.append(string)
+                        else:
+                            self.m_log.Value += string
                         self.sharedKey = hashlib.sha256('2').digest()
                         self.state = 2
                 elif self.state == 2:
+                    string = 'Data Received: '+ self.data1 +'\n'
                     self.data1, flag = self.decrypt(self.data1,self.sharedKey)
                     if flag:self.m_status.Label = "Channel Compromised!!!!!!!!! ABORT ABORT!!!"
                     if len(self.data1)>0:self.m_received.Value += self.data1+"\n"
+                    
+                    if self.isStep:
+                        self.log.append(string)
+                    else:
+                        self.m_log.Value += string
 
         
             # conn.close()
     def client(self):
         self.s.send(str(self.clientID)+"challenge_"+self.m_port.Value)
+        string = '\nClientID: '+str(self.clientID)+'\nChallenge: challenge_'+self.m_port.Value+'\nSending: '+str(self.clientID)+"challenge_"+self.m_port.Value+"\n"
+        if self.isStep:
+            self.log.append(string)
+        else:
+            self.m_log.Value += string
+
         while 1:
             self.data2 = self.s.recv(1024)
 
             if self.data2:
                 if self.state == 0:
+                    string = 'Received: '+self.data2+"\n"
+                    if self.isStep:
+                        self.log.append(string)
+                    else:
+                        self.m_log.Value += string
                     self.challenge = self.data2[:len('challenge_'+str(int(self.m_port.Value)+1))]
+                    string = 'Challenge is: '+self.challenge+"\n"
+                    if self.isStep:
+                        self.log.append(string)
+                    else:
+                        self.m_log.Value += string
                     self.data2, flag = self.decrypt(self.data2[len('challenge_'+str(int(self.m_port.Value)+1)):],self.sharedKey)
+                    string = 'Decrypted message is: '+self.data2+"\n"
+                    if self.isStep:
+                        self.log.append(string)
+                    else:
+                        self.m_log.Value += string
                     if flag:self.m_status.Label = "1Channel Compromised!!!!!!!!! ABORT ABORT!!!"
                     if self.serverID+self.m_port.Value != self.data2[:len(self.serverID+self.m_port.Value)]:
                         self.m_status.Label = "2Channel Compromised!!!!!!!!! ABORT ABORT!!!"
+                        string = 'Server ID failed'+"\n"
+                        if self.isStep:
+                            self.log.append(string)
+                        else:
+                            self.m_log.Value += string
                     else:
-                        print "challenge_"+str(self.m_port.Value)
-                        print self.data2 
                         if "challenge_"+str(self.m_port.Value) != self.data2[len(self.serverID+str(self.m_port.Value)):len("challenge_"+self.m_port.Value+self.serverID+self.m_port.Value)]:
                             self.m_status.Label = "3Channel Compromised!!!!!!!!! ABORT ABORT!!!"
+                            string = 'Challenge failed'+"\n"
+                            if self.isStep:
+                                self.log.append(string)
+                            else:
+                                self.m_log.Value += string
                         else:
                             self.s.send(self.encrypt(str(self.clientID)+self.challenge+str(8),self.sharedKey))
                             self.m_status.Label = "Client-mode: Authenticated"
                             self.state = 1
                             self.sharedKey = hashlib.sha256('2').digest()
+                            string = 'Server ID Matched!\nServer passed challenge!\nServer Verified!\n'+"Diffie-Hellman key exchange: g=5, p=23, A=8\nSecret = 2\n Session Key = SHA256('2')\n Session Key = d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35\n"
+                            if self.isStep:
+                                self.log.append(string)
+                            else:
+                                print string
+                                self.m_log.Value += string
+
+
+                            
+                            string = "Sending: "+self.encrypt(str(self.clientID)+self.challenge+str(8),self.sharedKey)+'\n'
+                            if self.isStep:
+                                self.log.append(string)
+                            else:
+                                self.m_log.Value += string
                 elif self.state == 1:
-                    self.data2, flag = self.decrypt(self.data2,self.sharedKey)
+                    string = 'Data Received: '+ self.data2 +'\n'
+                    self.data2, flag = self.decrypt(self.data2,self.sharedKey) 
                     if flag:self.m_status.Label = "Channel Compromised!!!!!!!!! ABORT ABORT!!!"
                     if len(self.data2)>0:self.m_received.Value += self.data2+"\n"
+                    
+                    if self.isStep:
+                        self.log.append(string)
+                    
+                    else:
+                        self.m_log.Value += string
 
 
 
@@ -309,15 +411,29 @@ class VPN(MyFrame1):
             
             try:
                 
-                if self.sharedKey == None:
+                if self.m_secret.Value== None:
                     raise Exception()
                 test = self.s.connect((self.m_ip.Value, int(self.m_port.Value)))
+                string = 'Connecting to server'+self.m_port.Value+'\n'
+                if self.isStep:
+                    self.log.append(string)
+                else:
+                    self.m_log.Value += string
 
-                
+                string = 'Connected to '+ self.m_ip.Value+':'+self.m_port.Value+'\n Shared secret is: '+self.m_secret.Value+'\n Session Key = SHA256('+self.m_secret.Value+')\n'
+                if self.isStep:
+                    self.log.append(string)
+                else:
+                    self.m_log.Value += string
                 self.socket = True
                 self.m_status.Label = 'Client-mode'
                 self.status = True
                 self.sharedKey =  hashlib.sha256(self.m_secret.Value).digest()
+                string = 'Shared Key = '+hashlib.sha256(self.m_secret.Value).hexdigest()
+                if self.isStep:
+                    self.log.append(string)
+                else:
+                    self.m_log.Value += string
                 thread.start_new_thread( self.client,() )
                 
             except:
@@ -333,11 +449,20 @@ class VPN(MyFrame1):
                 self.s.bind((self.m_ip.Value, int(self.m_port.Value)))
                 
 
-                
+                string = self.m_ip.Value+':'+self.m_port.Value+' is open!\n Shared secret is: '+self.m_secret.Value+'\n Session Key = SHA256('+self.m_secret.Value+')\n'
+                if self.isStep:
+                    self.log.append(string)
+                else:
+                    self.m_log.Value += string
                 self.socket = True
                 self.m_status.Label = 'Server-mode'
                 self.status = True
                 self.sharedKey =  hashlib.sha256(self.m_secret.Value).digest()
+                string = 'Shared Key = '+hashlib.sha256(self.m_secret.Value).hexdigest()
+                if self.isStep:
+                    self.log.append(string)
+                else:
+                    self.m_log.Value += string
                 thread.start_new_thread( self.server,() )
             except:
                 self.m_status.Label = 'Error!'
@@ -354,13 +479,21 @@ class VPN(MyFrame1):
             self.s.send(self.encrypt(self.m_sendBox.Value,self.sharedKey))
         else:
             self.conn.send(self.encrypt(self.m_sendBox.Value,self.sharedKey))
+        string = 'Message Sent: '+self.encrypt(self.m_sendBox.Value,self.sharedKey)+'\n'
+        if self.isStep:
+            self.log.append(string)
+        else:
+            self.m_log.Value += string
         self.m_sendBox.Value = ''
     
     def step( self, event ):
-        event.Skip()
+        if self.isStep:
+            if len(self.log)>0:
+                self.m_log.Value += self.log.pop(0)
+
     
     def enableStep( self, event ):
-        event.Skip()
+        self.isStep = self.m_enable.GetValue()
 
     def checkVPN( self, event ):
         event.Skip()
@@ -387,12 +520,10 @@ class VPN(MyFrame1):
 #mandatory in wx, create an app, False stands for not deteriction stdin/stdout
 #refer manual for details
 app = wx.App(False)
-
+ 
 #create an object of CalcFrame
 frame = VPN(None)
-
 #show the frame
 frame.Show(True)
-
 #start the applications
 app.MainLoop()

@@ -1,9 +1,17 @@
 IMPORTANT! PLEASE USE THESE INSTRUCTIONS AS THERE ARE SOME ERRORS IN THE PDF INSTRUCTIONS!!!
 
-===INSTALLATION===
+===EXECUTABLE===
+We have decided to include an exe so that the instructors don't have to do the installation as it is quite cumbersome. The executable is named "VPN_Group19.exe"
+
+Please note that all files in the folder are required in order for the executable to run.
+
+
+===IF YOU WISH TO INSTALL INSTEAD===
 
 Our solution is written in Python. It can be accessed at the following GitHub repository:
 https://github.com/AlekArsovski/EECE412-A3.git
+
+The file "test.py" is the one you need to compile.
 
 The user needs to have Python running in Windows (we tested it on Windows 8). As such, if Python is not yet installed, a user will need the following Python installation here: https://www.python.org/download/releases/2.7/.
 
@@ -15,6 +23,7 @@ http://www.wxpython.org/download.php
 Once installed, the “python” command should be added to the PATH environment variable, and the user can execute the program by navigating to the folder containing the python program in command line or terminal, and entering “python assignment_3_group_19”.
 
 Once this is done, a graphical interface containing all the functionalities required in the assignment should pop up, and the user will be able to select between client or server mode.
+
 
 ===HOW TO USE===
 
