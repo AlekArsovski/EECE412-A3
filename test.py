@@ -18,6 +18,7 @@ import hashlib
 import thread
 from random import randrange
 
+
 ###########################################################################
 ## Class MyFrame1
 ###########################################################################
@@ -203,8 +204,6 @@ class MyFrame1 ( wx.Frame ):
     def __del__( self ):
         pass
     
-    
-
 
 class VPN(MyFrame1):
     isClient = False
@@ -223,10 +222,6 @@ class VPN(MyFrame1):
 
     BS = 16
 
-
-
-
-
     #constructor
     def __init__(self,parent):
         #initialize parent class
@@ -234,6 +229,7 @@ class VPN(MyFrame1):
  
     # Virtual event handlers, overide them in your derived class
 
+    
     def server(self):
         self.s.listen(1)
         self.conn, self.addr = self.s.accept()
@@ -259,7 +255,8 @@ class VPN(MyFrame1):
                 elif self.state == 2:
                     self.data1, flag = self.decrypt(self.data1,self.sharedKey)
                     if flag:self.m_status.Label = "Channel Compromised!!!!!!!!! ABORT ABORT!!!"
-                    self.m_received.Value += self.data1+"\n"
+                    if len(self.data1)>0:self.m_received.Value += self.data1+"\n"
+
         
             # conn.close()
     def client(self):
@@ -287,7 +284,7 @@ class VPN(MyFrame1):
                 elif self.state == 1:
                     self.data2, flag = self.decrypt(self.data2,self.sharedKey)
                     if flag:self.m_status.Label = "Channel Compromised!!!!!!!!! ABORT ABORT!!!"
-                    self.m_received.Value += self.data2+"\n"
+                    if len(self.data2)>0:self.m_received.Value += self.data2+"\n"
 
 
 
@@ -352,10 +349,12 @@ class VPN(MyFrame1):
     
     def send( self, event ):
         try:
-            self.s.send(self.encrypt(self.m_sendBox.Value,self.sharedKey))
+            self.conn
         except:
+            self.s.send(self.encrypt(self.m_sendBox.Value,self.sharedKey))
+        else:
             self.conn.send(self.encrypt(self.m_sendBox.Value,self.sharedKey))
-        self.m_sendBox = ''
+        self.m_sendBox.Value = ''
     
     def step( self, event ):
         event.Skip()
@@ -388,10 +387,12 @@ class VPN(MyFrame1):
 #mandatory in wx, create an app, False stands for not deteriction stdin/stdout
 #refer manual for details
 app = wx.App(False)
- 
+
 #create an object of CalcFrame
 frame = VPN(None)
+
 #show the frame
 frame.Show(True)
+
 #start the applications
 app.MainLoop()
